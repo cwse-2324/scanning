@@ -1,1 +1,184 @@
 
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STC Info Day 2026 入場掃描</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+ body{font-family:Arial,"Microsoft JhengHei",sans-serif;text-align:center;margin:10px;color:#222;background:#f7f7f7}
+ h2{margin:6px 0}
+ #reader{max-width:420px;margin:auto;background:#fff}
+ #msg{font-size:1.4em;padding:16px;margin:10px auto;max-width:520px;border-radius:12px;background:#e5e7eb}
+ #msg .big{font-size:1.4em;font-weight:bold}
+ .ok{background:#c8f7c5 !important}
+ .dup{background:#ffe9a8 !important}
+ .invalid{background:#ffc4c4 !important}
+ #stats{font-size:1.05em;margin:8px;line-height:1.6}
+ input{font-size:1.1em;padding:6px;width:230px;text-transform:uppercase}
+ button{font-size:1.1em;padding:6px 12px;margin:2px}
+ #login{max-width:360px;margin:40px auto;background:#fff;padding:20px;border-radius:12px}
+ #login input{text-transform:none}
+ .small{font-size:.85em;color:#6b7280}
+ #net{font-size:.85em}
+</style>
+</head>
+<body>
+
+<div id="login" style="display:none">
+  <h2>STC Info Day 入場掃描</h2>
+  <p>請輸入工作人員密碼</p>
+  <input id="keyInput" type="password" placeholder="密碼">
+  <button onclick="saveKey()">進入</button>
+  <p id="loginErr" style="color:#b91c1c"></p>
+</div>
+
+<div id="app" style="display:none">
+  <h2>STC Info Day 入場掃描</h2>
+  <div id="stats">載入中…</div>
+  <div id="reader"></div>
+  <div id="msg">請掃描二維碼</div>
+  <input id="manual" placeholder="手動輸入入場碼">
+  <button onclick="sendManual()">登記</button>
+  <p id="net" class="small"></p>
+  <p class="small"><a href="#" onclick="logout();return false;">登出／更改密碼</a></p>
+</div>
+
+<script>
+ // Google Apps Script 網頁應用程式網址
+ const API_URL = 'https://script.google.com/macros/s/AKfycbyd7iCABadUY3wrqoiKPxE4HcdwxQ3y1Zca6lZY7Y4eNj5iNkE2UCZylNa8Pnutx97YzA/exec';
+
+ let KEY = new URLSearchParams(location.search).get('key') || localStorage.getItem('stc_key') || '';
+ let last = '', lastTime = 0, busy = false, scanner = null;
+
+ async function api(params){
+   const url = API_URL + '?' + new URLSearchParams(Object.assign({ key: KEY }, params));
+   const ctrl = new AbortController();
+   const timer = setTimeout(() => ctrl.abort(), 15000);
+   try {
+     const res = await fetch(url, { signal: ctrl.signal, redirect: 'follow' });
+     const data = await res.json();
+     if (!data.ok) throw new Error(data.error || '未知錯誤');
+     document.getElementById('net').textContent = '連線正常 ' + new Date().toLocaleTimeString('zh-HK');
+     return data;
+   } catch (e) {
+     document.getElementById('net').textContent = '⚠ 連線失敗：' + (e.name === 'AbortError' ? '逾時' : e.message);
+     throw e;
+   } finally {
+     clearTimeout(timer);
+   }
+ }
+
+ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+ function beep(ok){
+   try{
+     const c = new (window.AudioContext||window.webkitAudioContext)();
+     const o = c.createOscillator(); o.frequency.value = ok ? 880 : 220;
+     o.connect(c.destination); o.start(); setTimeout(()=>{o.stop();c.close();}, ok?150:400);
+   }catch(e){}
+   if (navigator.vibrate) navigator.vibrate(ok ? 80 : [100,60,100]);
+ }
+
+ function show(r){
+   const m = document.getElementById('msg');
+   m.className = r.status;
+   const s = r.sessLabel ? `<div>【${esc(r.sessId)}】${esc(r.sessLabel)}</div>` : '';
+   if (r.status==='ok') {
+     m.innerHTML = `<div class="big">✔ ${r.pax} 人入場</div><div>${esc(r.name)}</div>${s}<div>${esc(r.warn)}</div>`;
+     beep(true);
+   } else if (r.status==='dup') {
+     m.innerHTML = `<div class="big">⚠ 已於 ${esc(r.time)} 入場</div><div>${esc(r.name)}（${r.pax}人）</div>${s}<div>${esc(r.warn)}</div>`;
+     beep(false);
+   } else {
+     m.innerHTML = `<div class="big">✘ 無效入場碼</div>${r.reason ? '<div>狀態：'+esc(r.reason)+'</div>' : ''}`;
+     beep(false);
+   }
+   if (r.summary) stats(r.summary);
+ }
+
+ function stats(s){
+   let html = `<b>已入場 ${s.inPax} / ${s.totalPax} 人</b>`;
+   Object.keys(s.sessions || {}).sort().forEach(id=>{
+     const x = s.sessions[id];
+     html += `<br>【${esc(id)}】${esc(x.label)}：${x.in} / ${x.total} 人`;
+   });
+   document.getElementById('stats').innerHTML = html;
+ }
+
+ async function send(code){
+   code = (code || '').trim();
+   if(!code || busy) return;
+   const now = Date.now();
+   if(code===last && now-lastTime<4000) return;   // 防止同一碼連續觸發
+   last = code; lastTime = now; busy = true;
+   const m = document.getElementById('msg');
+   m.className = ''; m.textContent = '核對中…';
+   try {
+     show(await api({ action: 'checkin', code }));
+   } catch (e) {
+     m.className = 'invalid';
+     m.innerHTML = `<div class="big">⚠ 未能登記</div><div>${esc(e.message)}</div><div>請再掃描一次或手動輸入</div>`;
+     last = '';                                     // 允許立即重試
+     beep(false);
+     if (/密碼|Access denied/.test(e.message)) logout();
+   } finally {
+     busy = false;
+   }
+ }
+
+ function sendManual(){
+   const el = document.getElementById('manual');
+   last = ''; send(el.value); el.value='';
+ }
+
+ async function refresh(){
+   try { stats(await api({ action: 'summary' })); } catch(e) {}
+ }
+
+ async function saveKey(){
+   KEY = document.getElementById('keyInput').value.trim();
+   document.getElementById('loginErr').textContent = '核對中…';
+   try {
+     const s = await api({ action: 'summary' });
+     localStorage.setItem('stc_key', KEY);
+     startApp(s);
+   } catch (e) {
+     document.getElementById('loginErr').textContent = '未能登入：' + e.message;
+   }
+ }
+
+ function logout(){
+   localStorage.removeItem('stc_key'); KEY = '';
+   if (scanner) { scanner.stop().catch(()=>{}); scanner = null; }
+   document.getElementById('app').style.display = 'none';
+   document.getElementById('login').style.display = 'block';
+ }
+
+ function startApp(s){
+   document.getElementById('login').style.display = 'none';
+   document.getElementById('app').style.display = 'block';
+   if (s) stats(s);
+   if (!scanner) {
+     scanner = new Html5Qrcode('reader');
+     scanner.start({facingMode:'environment'}, {fps:10, qrbox:250}, send)
+       .catch(err=>{ document.getElementById('msg').textContent = '未能開啟鏡頭，請改用手動輸入：' + err; });
+   }
+ }
+
+ document.getElementById('manual').addEventListener('keydown', e=>{ if(e.key==='Enter') sendManual(); });
+ document.getElementById('keyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') saveKey(); });
+ setInterval(()=>{ if (KEY && scanner) refresh(); }, 20000);
+
+ // 啟動
+ if (KEY) {
+   api({ action: 'summary' })
+     .then(s => { localStorage.setItem('stc_key', KEY); startApp(s); })
+     .catch(() => logout());
+ } else {
+   logout();
+ }
+</script>
+</body>
+</html>
