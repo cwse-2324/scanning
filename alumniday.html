@@ -1,0 +1,427 @@
+
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>STC Alumni Day 2026 · Check-in</title>
+<meta name="robots" content="noindex">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{--navy:#1F3A68;--ok:#15803D;--warn:#D97706;--bad:#B91C1C;--bg:#F3F5F9;--card:#fff;--mut:#64748B}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,"Noto Sans TC",Arial,sans-serif;background:var(--bg);color:#0F172A}
+  header{background:var(--navy);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  header h1{font-size:16px;margin:0}
+  #sync{font-size:12px;opacity:.9;text-align:right}
+  .wrap{max-width:900px;margin:0 auto;padding:10px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .stat{background:var(--card);border-radius:10px;padding:8px 10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .stat b{display:block;font-size:24px;line-height:1.1}
+  .stat span{font-size:11px;color:var(--mut)}
+  .bar{height:8px;background:#E2E8F0;border-radius:6px;margin:8px 0;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--ok);width:0;transition:width .4s}
+  .panel{background:var(--card);border-radius:12px;padding:10px;margin-top:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  #reader{width:100%;max-width:420px;margin:0 auto;border-radius:10px;overflow:hidden}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{white-space:nowrap;border:0;border-radius:8px;padding:10px 14px;font-size:15px;background:var(--navy);color:#fff;cursor:pointer}
+  button.sec{background:#E2E8F0;color:#0F172A}
+  button.small{padding:6px 10px;font-size:13px}
+  input{font-size:16px;padding:10px;border:1px solid #CBD5E1;border-radius:8px;flex:1;min-width:0}
+  .tabs{display:flex;gap:6px;margin-bottom:8px}
+  .tabs button{flex:1;background:#E2E8F0;color:#0F172A;padding:8px}
+  .tabs button.on{background:var(--navy);color:#fff}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  td,th{padding:7px 6px;border-bottom:1px solid #EEF2F7;text-align:left;vertical-align:top}
+  th{font-size:12px;color:var(--mut);font-weight:600}
+  .tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:10px;background:#E0E7FF;color:#3730A3;margin-left:4px}
+  .tag.y{background:#FEF3C7;color:#92400E}.tag.r{background:#FEE2E2;color:#991B1B}.tag.g{background:#DCFCE7;color:#166534}
+  /* result overlay */
+  #res{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.55);z-index:20;padding:14px}
+  #res .box{width:100%;max-width:520px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+  #res .head{padding:14px 16px;color:#fff;font-size:20px;font-weight:700}
+  #res .body{padding:14px 16px}
+  #res .name{font-size:24px;font-weight:700;margin-bottom:4px}
+  #res .pax{font-size:46px;font-weight:800;line-height:1}
+  #res .meta{font-size:14px;color:#334155;margin-top:8px;line-height:1.6}
+  .stepper{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .stepper button{width:46px;height:46px;font-size:24px;padding:0}
+  .stepper button.small{width:auto;height:auto;font-size:14px;padding:10px 14px}
+  .stepper b{font-size:30px;min-width:40px;text-align:center}
+  #pin{position:fixed;inset:0;background:var(--navy);display:none;align-items:center;justify-content:center;z-index:30}
+  #pin .box{background:#fff;padding:20px;border-radius:14px;width:330px;max-width:92vw;text-align:center}
+  .mut{color:var(--mut);font-size:12px}
+  @media(max-width:520px){.stat b{font-size:20px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>STC Alumni Day 2026 · Check-in</h1>
+  <div id="sync">Loading…</div>
+</header>
+
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><b id="sPersons">0</b><span>persons arrived / <span id="sExp">0</span> expected</span></div>
+    <div class="stat"><b id="sParties">0</b><span>registrations in / <span id="sTot">0</span></span></div>
+    <div class="stat"><b id="sRate">0%</b><span>arrival rate (persons)</span></div>
+    <div class="stat"><b id="sQueue">0</b><span>waiting to upload</span></div>
+  </div>
+  <div class="bar"><i id="sBar"></i></div>
+
+  <div class="panel">
+    <div id="reader"></div>
+    <div class="row" style="justify-content:center;margin-top:8px">
+      <button id="camBtn" onclick="toggleCam()">Start camera</button>
+      <button class="sec" onclick="switchCam()">Switch camera</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input id="manual" placeholder="Scan / type code, name or phone" autocomplete="off"
+             onkeydown="if(event.key==='Enter'){manualGo()}" oninput="searchLive()">
+      <button onclick="manualGo()">Go</button>
+    </div>
+    <div id="searchOut"></div>
+  </div>
+
+  <div class="panel">
+    <div class="tabs">
+      <button id="tRecent" class="on" onclick="tab('recent')">Recent</button>
+      <button id="tWaiting" onclick="tab('waiting')">Not arrived</button>
+      <button id="tYear" onclick="tab('year')">By year</button>
+      <button id="tTeam" onclick="tab('team')">Basketball</button>
+    </div>
+    <div id="list"></div>
+  </div>
+  <p class="mut" style="text-align:center">Device: <span id="devName"></span> · <a href="#" onclick="renameDevice();return false">rename</a> · <a href="#" onclick="syncNow();return false">sync now</a> · <a href="#" onclick="logout();return false">log out</a></p>
+</div>
+
+<!-- Result overlay -->
+<div id="res" onclick="if(event.target.id==='res')closeRes()">
+  <div class="box">
+    <div class="head" id="rHead"></div>
+    <div class="body">
+      <div class="name" id="rName"></div>
+      <div class="row" style="align-items:flex-end;gap:14px">
+        <div id="rPaxBox"><div class="pax" id="rPax"></div><div class="mut">registered participants (incl. alumnus)</div></div>
+      </div>
+      <div class="meta" id="rMeta"></div>
+      <div id="rArr" style="display:none">
+        <div class="mut" style="margin-top:12px">Persons actually arrived</div>
+        <div class="stepper">
+          <button class="sec" onclick="step(-1)">−</button><b id="rArrN">0</b><button class="sec" onclick="step(1)">+</button>
+          <button class="small" id="rSave" onclick="saveArrived()" style="margin-left:auto">Save number</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px;justify-content:space-between">
+        <button class="sec small" id="rUndo" onclick="undo()">Undo check-in</button>
+        <button id="rCheck" style="display:none" onclick="forceCheck()">Check in now</button>
+        <button onclick="closeRes()">Next ▶</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP / PIN -->
+<div id="pin"><div class="box">
+  <h3 style="margin-top:0">STC Alumni Day 2026<br>Check-in setup</h3>
+  <div style="text-align:left" class="mut">https://script.google.com/macros/s/AKfycbwkME689NNKkEbCmKhjpKHTYFvyBCJGUV1bXBHcQFmA7XtDYwSUxcqdkdO5j2aZdWax/exec</div>
+  <input id="apiIn" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%;margin:4px 0 10px;font-size:13px">
+  <div style="text-align:left" class="mut">Scanner PIN</div>
+  <input id="pinIn" type="password" style="width:100%;text-align:center;margin-top:4px" onkeydown="if(event.key==='Enter')submitPin()">
+  <p id="pinErr" style="color:var(--bad);font-size:13px;min-height:16px"></p>
+  <button onclick="submitPin()" style="width:100%">Start</button>
+</div></div>
+
+<script>
+/* ---------------- state ---------------- */
+const LS = 'stcAD26_';
+let PIN = localStorage.getItem(LS+'pin') || '';
+let DEVICE = localStorage.getItem(LS+'dev') || ('Counter-' + Math.random().toString(36).slice(2,5).toUpperCase());
+localStorage.setItem(LS+'dev', DEVICE);
+document.getElementById('devName').textContent = DEVICE;
+
+let DB = {};            // core -> record (all registrations, loaded once, refreshed in background)
+let QUEUE = JSON.parse(localStorage.getItem(LS+'queue') || '[]');   // uploads not yet confirmed
+let current = null, curArr = 0, curTab = 'recent', lastScan = {t:'', ms:0};
+let flushing = false, loaded = false;
+
+function saveQueue(){ localStorage.setItem(LS+'queue', JSON.stringify(QUEUE)); render(); }
+// Put your Apps Script /exec URL here to skip the setup box (or leave '' and paste it on first use)
+const DEFAULT_API = '';
+let API = new URLSearchParams(location.search).get('api') || localStorage.getItem(LS+'api') || DEFAULT_API;
+async function api(body){
+  const res = await fetch(API, {method:'POST', body: JSON.stringify(body), redirect:'follow'});  // text/plain → no CORS pre-flight
+  const j = await res.json();
+  if(j.error) throw new Error(j.error);
+  return j;
+}
+function coreOf(t){ const p=String(t||'').trim().toUpperCase().replace(/\s+/g,'').split('-'); return p.length>=2 ? p[0]+'-'+p[1] : ''; }
+function hhmmss(d){ return d.toTimeString().slice(0,8); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function excluded(r){ return /^SKIP|^DUPLICATE/i.test(r.status||''); }
+
+/* ---------------- loading & syncing ---------------- */
+async function load(){
+  try{
+    if(!API) { showPin(''); return; }
+    const d = await api({action:'data', pin:PIN});
+    merge(d.rows);
+    loaded = true;
+    localStorage.setItem(LS+'pin', PIN); localStorage.setItem(LS+'api', API);
+    localStorage.setItem(LS+'cache', JSON.stringify(d.rows));
+    document.getElementById('pin').style.display='none';
+    setSync('Synced ' + hhmmss(new Date()));
+    flush();
+  }catch(e){
+    if(String(e).indexOf('WRONG_PIN')>-1){ showPin(PIN ? 'Wrong PIN' : ''); return; }
+    if(!loaded && !localStorage.getItem(LS+'cache')){ showPin('Cannot reach the Apps Script URL – check the URL and that access is "Anyone".'); return; }
+    // offline: use cached copy so scanning still works
+    const c = localStorage.getItem(LS+'cache');
+    if(c && !loaded){ merge(JSON.parse(c)); loaded = true; }
+    setSync('⚠ Offline – using saved list');
+  }
+}
+function merge(rows){
+  const pending = {};
+  QUEUE.forEach(q => pending[q.core] = true);
+  const next = {};
+  rows.forEach(r => {
+    const old = DB[r.core];
+    if(old && pending[r.core]){ r.checkin = old.checkin; r.checkinMs = old.checkinMs; r.arrived = old.arrived; }
+    next[r.core] = r;
+  });
+  DB = next;
+  render();
+}
+function setSync(t){ document.getElementById('sync').innerHTML = esc(t) + '<br>' + Object.keys(DB).length + ' records'; }
+function syncNow(){ load(); }
+setInterval(() => { if(loaded) load(); }, 20000);   // pick up other counters & late registrations
+
+/* Upload queue – runs in background; scanning never waits for the server */
+async function flush(){
+  if(flushing || !QUEUE.length) return;
+  flushing = true;
+  while(QUEUE.length){
+    const ops = QUEUE.slice(0, 25);
+    try{
+      const r = await api({action:'batch', pin:PIN, device:DEVICE, ops:ops});
+      (r.results||[]).forEach(x => {
+        if(x.result==='ALREADY'){
+          const op = ops.find(o => o.id===x.id);
+          const rec = DB[x.core];
+          if(rec && op && op.type==='in'){ rec.checkin = x.checkin; rec.arrived = x.arrived; rec.other = true; }
+          if(current && current.core===x.core) showResult(rec, 'dup', 'Already checked in on another counter at ' + x.checkin);
+        }
+      });
+      const done = new Set(ops.map(o=>o.id));
+      QUEUE = QUEUE.filter(q => !done.has(q.id)); saveQueue();
+    }catch(e){
+      if(String(e).indexOf('WRONG_PIN')>-1){ flushing=false; showPin('PIN changed – please enter again'); return; }
+      setSync('⚠ Upload failed – retrying');
+      flushing = false; setTimeout(flush, 5000); return;
+    }
+  }
+  flushing = false;
+  setSync('Synced ' + hhmmss(new Date()));
+}
+function qid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+/* ---------------- scanning ---------------- */
+async function handle(text){
+  text = String(text||'').trim();
+  if(!text) return;
+  const now = Date.now();
+  if(text===lastScan.t && now-lastScan.ms < 4000) return;   // camera repeats the same frame
+  lastScan = {t:text, ms:now};
+  const core = coreOf(text);
+  let rec = DB[core];
+  if(!rec){
+    showMsg('Checking…', 'Code not in the saved list – asking the server', 'var(--warn)');
+    await load();
+    rec = DB[core];
+    if(!rec){ beep(false); return showMsg('NOT FOUND', 'Code "' + esc(text) + '" is not registered. Please search by name or phone.', 'var(--bad)'); }
+  }
+  if(excluded(rec)) { beep(false); return showResult(rec, 'bad', 'Marked "' + rec.status + '" in the sheet – please check'); }
+  if(rec.checkin){ beep(false); return showResult(rec, 'dup', 'Already checked in at ' + rec.checkin); }
+  doCheckIn(rec);
+}
+function doCheckIn(rec){
+  const d = new Date();
+  rec.checkin = hhmmss(d); rec.checkinMs = d.getTime(); rec.arrived = rec.pax; rec.byMe = true;
+  QUEUE.push({id:qid(), type:'in', core:rec.core, arrived:rec.pax, ms:d.getTime()}); saveQueue(); flush();
+  beep(true);
+  showResult(rec, 'ok', 'Welcome back!');
+}
+function forceCheck(){ if(current){ doCheckIn(current); } }
+
+/* ---------------- result card ---------------- */
+function showResult(rec, kind, title){
+  current = rec;
+  const col = kind==='ok' ? 'var(--ok)' : kind==='dup' ? 'var(--warn)' : 'var(--bad)';
+  document.getElementById('rHead').style.background = col;
+  document.getElementById('rHead').textContent = (kind==='ok'?'✔ ':kind==='dup'?'! ':'✖ ') + title;
+  document.getElementById('rName').textContent = rec.name;
+  document.getElementById('rPax').textContent = rec.pax;
+  document.getElementById('rPaxBox').style.display = 'block';
+  let m = '';
+  m += '<b>Code:</b> ' + esc(rec.code) + (rec.year ? ' · <b>Class of</b> ' + esc(rec.year) : '') + '<br>';
+  m += '<b>Family:</b> ' + esc(rec.family || '-') + '<br>';
+  if(rec.phone) m += '<b>Phone:</b> ' + esc(rec.phone) + '<br>';
+  if(rec.bball) m += '<b>Basketball:</b> ' + esc(rec.team) + (rec.teamSize ? ' (' + esc(rec.teamSize) + ' members)' : '') + '<br>';
+  if(rec.teacher && !/^(nil|no|none|\.|-|n\/a|沒有|無)$/i.test(rec.teacher)) m += '<b>Wish to meet:</b> ' + esc(rec.teacher) + '<br>';
+  if(rec.checkin) m += '<b>Checked in:</b> ' + esc(rec.checkin) + (rec.arrived!=='' ? ' · ' + rec.arrived + ' arrived' : '');
+  document.getElementById('rMeta').innerHTML = m;
+  const isIn = !!rec.checkin;
+  document.getElementById('rArr').style.display = isIn ? 'block' : 'none';
+  document.getElementById('rUndo').style.display = isIn ? 'inline-block' : 'none';
+  document.getElementById('rCheck').style.display = (!isIn && kind==='bad') ? 'inline-block' : 'none';
+  curArr = rec.arrived===''||rec.arrived==null ? rec.pax : rec.arrived;
+  document.getElementById('rArrN').textContent = curArr;
+  document.getElementById('res').style.display = 'flex';
+}
+function showMsg(title, html, col){
+  current = null;
+  document.getElementById('rHead').style.background = col;
+  document.getElementById('rHead').textContent = title;
+  document.getElementById('rName').textContent = '';
+  document.getElementById('rPax').textContent = '';
+  document.getElementById('rPaxBox').style.display = 'none';
+  document.getElementById('rMeta').innerHTML = html;
+  ['rArr','rUndo','rCheck'].forEach(id => document.getElementById(id).style.display='none');
+  document.getElementById('res').style.display = 'flex';
+}
+function closeRes(){ document.getElementById('res').style.display='none'; current=null; const i=document.getElementById('manual'); i.value=''; document.getElementById('searchOut').innerHTML=''; i.focus(); }
+function step(d){ curArr = Math.max(0, curArr + d); document.getElementById('rArrN').textContent = curArr; }
+function saveArrived(){
+  if(!current) return;
+  current.arrived = curArr;
+  QUEUE.push({id:qid(), type:'arr', core:current.core, arrived:curArr}); saveQueue(); flush();
+  document.getElementById('rSave').textContent = 'Saved ✔';
+  setTimeout(()=>document.getElementById('rSave').textContent='Save number', 1200);
+}
+function undo(){
+  if(!current || !confirm('Undo check-in for ' + current.name + '?')) return;
+  current.checkin=''; current.checkinMs=0; current.arrived='';
+  QUEUE.push({id:qid(), type:'undo', core:current.core}); saveQueue(); flush();
+  closeRes();
+}
+
+/* ---------------- manual search ---------------- */
+function matches(q){
+  q = q.toLowerCase().replace(/\s+/g,' ').trim();
+  if(q.length < 2) return [];
+  const qd = q.replace(/\D/g,'');
+  return Object.values(DB).filter(r =>
+    r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q) ||
+    (qd.length>=4 && r.phone.includes(qd))).slice(0, 8);
+}
+function searchLive(){
+  const q = document.getElementById('manual').value;
+  if(/^[A-Z0-9]+-[A-Z0-9]{6}/i.test(q.trim())) { document.getElementById('searchOut').innerHTML=''; return; }
+  const m = matches(q);
+  document.getElementById('searchOut').innerHTML = m.length ? '<table>' + m.map(r =>
+    '<tr><td>' + esc(r.name) + (r.year?'<span class="tag">'+esc(r.year)+'</span>':'') + '<br><span class="mut">' + esc(r.phone) + '</span></td><td style="white-space:nowrap">' + r.pax + ' pax</td><td>' +
+    (r.checkin ? '<span class="tag g">in ' + esc(r.checkin) + '</span>' : '') +
+    ' <button class="small" onclick="pick(\'' + r.core + '\')">' + (r.checkin?'View':'Check in') + '</button></td></tr>').join('') + '</table>' : '';
+}
+function pick(core){ const r = DB[core]; if(!r) return; if(r.checkin || excluded(r)) return handle(r.code); lastScan={t:'',ms:0}; handle(r.code); }
+function manualGo(){
+  const v = document.getElementById('manual').value.trim();
+  if(!v) return;
+  if(DB[coreOf(v)] || /^[A-Z0-9]+-[A-Z0-9]{6}/i.test(v)) { lastScan={t:'',ms:0}; return handle(v); }
+  const m = matches(v);
+  if(m.length===1) return pick(m[0].core);
+  searchLive();
+}
+
+/* ---------------- summary & lists ---------------- */
+function render(){
+  const all = Object.values(DB).filter(r => !excluded(r));
+  const inn = all.filter(r => r.checkin);
+  const exp = all.reduce((s,r)=>s+r.pax,0);
+  const arr = inn.reduce((s,r)=>s+(parseInt(r.arrived,10)||0),0);
+  document.getElementById('sPersons').textContent = arr;
+  document.getElementById('sExp').textContent = exp;
+  document.getElementById('sParties').textContent = inn.length;
+  document.getElementById('sTot').textContent = all.length;
+  const rate = exp ? Math.round(arr*100/exp) : 0;
+  document.getElementById('sRate').textContent = rate + '%';
+  document.getElementById('sBar').style.width = Math.min(100,rate) + '%';
+  document.getElementById('sQueue').textContent = QUEUE.length;
+  document.getElementById('sQueue').style.color = QUEUE.length ? 'var(--warn)' : '';
+  renderList(all, inn);
+}
+function tab(t){ curTab=t; ['recent','waiting','year','team'].forEach(x=>document.getElementById('t'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on',x===t)); render(); }
+function renderList(all, inn){
+  const el = document.getElementById('list');
+  let h = '';
+  if(curTab==='recent'){
+    const l = inn.slice().sort((a,b)=>(b.checkinMs||0)-(a.checkinMs||0) || String(b.checkin).localeCompare(String(a.checkin))).slice(0,30);
+    h = '<table><tr><th>Time</th><th>Name</th><th>Year</th><th>Arrived</th></tr>' + l.map(r =>
+      '<tr onclick="showResult(DB[\''+r.core+'\'],\'dup\',\'Checked in at '+esc(r.checkin)+'\')"><td>'+esc(r.checkin)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.year)+'</td><td>'+(r.arrived===''?'-':r.arrived)+' / '+r.pax+'</td></tr>').join('') + '</table>';
+    if(!l.length) h = '<p class="mut">No check-ins yet.</p>';
+  } else if(curTab==='waiting'){
+    const l = all.filter(r=>!r.checkin).sort((a,b)=>a.name.localeCompare(b.name));
+    h = '<p class="mut">' + l.length + ' registrations (' + l.reduce((s,r)=>s+r.pax,0) + ' persons) not yet arrived</p><table>' + l.map(r =>
+      '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.year)+'</td><td style="white-space:nowrap">'+r.pax+' pax</td><td><button class="small" onclick="pick(\''+r.core+'\')">Check in</button></td></tr>').join('') + '</table>';
+  } else if(curTab==='year'){
+    const g = {};
+    all.forEach(r => { const k = r.year || '?'; g[k] = g[k] || {reg:0,exp:0,inn:0,arr:0}; g[k].reg++; g[k].exp+=r.pax; if(r.checkin){ g[k].inn++; g[k].arr+=(parseInt(r.arrived,10)||0);} });
+    h = '<table><tr><th>Graduation year</th><th>Registrations in</th><th>Persons arrived</th></tr>' + Object.keys(g).sort().map(k =>
+      '<tr><td>'+esc(k)+'</td><td>'+g[k].inn+' / '+g[k].reg+'</td><td>'+g[k].arr+' / '+g[k].exp+'</td></tr>').join('') + '</table>';
+  } else {
+    const l = all.filter(r=>r.bball);
+    h = '<table><tr><th>Team</th><th>Contact alumnus</th><th>Members</th><th>Status</th></tr>' + l.map(r =>
+      '<tr><td>'+esc(r.team)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.teamSize)+'</td><td>'+(r.checkin?'<span class="tag g">in '+esc(r.checkin)+'</span>':'<span class="tag y">waiting</span>')+'</td></tr>').join('') + '</table>';
+    if(!l.length) h = '<p class="mut">No basketball teams.</p>';
+  }
+  el.innerHTML = h;
+}
+
+/* ---------------- camera ---------------- */
+let qr = null, camOn = false, cams = [], camIdx = -1;
+async function toggleCam(){
+  beep(null);  // unlock audio on first tap
+  if(camOn){ await qr.stop(); camOn=false; document.getElementById('camBtn').textContent='Start camera'; return; }
+  try{
+    qr = qr || new Html5Qrcode('reader');
+    const cfg = {fps:12, qrbox:{width:240,height:240}, aspectRatio:1};
+    const src = camIdx>=0 && cams[camIdx] ? cams[camIdx].id : {facingMode:'environment'};
+    await qr.start(src, cfg, txt => { if(document.getElementById('res').style.display!=='flex') handle(txt); }, ()=>{});
+    camOn = true; document.getElementById('camBtn').textContent='Stop camera';
+  }catch(e){ alert('Camera could not start: ' + e + '\nYou can still type the code, use a USB/Bluetooth scanner, or search by name.'); }
+}
+async function switchCam(){
+  try{ cams = cams.length ? cams : await Html5Qrcode.getCameras(); }catch(e){ return alert('No camera list available.'); }
+  if(!cams.length) return;
+  camIdx = (camIdx+1) % cams.length;
+  if(camOn){ await qr.stop(); camOn=false; }
+  toggleCam();
+}
+
+/* ---------------- misc ---------------- */
+let actx = null;
+function beep(ok){
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    if(ok===null) return;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.frequency.value = ok ? 880 : 220; o.type = ok ? 'sine' : 'square';
+    g.gain.value = .15; o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + (ok ? .15 : .4));
+    if(navigator.vibrate) navigator.vibrate(ok ? 80 : [80,60,80]);
+  }catch(e){}
+}
+function showPin(err){ document.getElementById('pin').style.display='flex'; document.getElementById('apiIn').value = API||''; document.getElementById('pinErr').textContent = err||''; document.getElementById('pinIn').focus(); }
+function submitPin(){ PIN = document.getElementById('pinIn').value.trim(); API = document.getElementById('apiIn').value.trim(); if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(API)){ document.getElementById('pinErr').textContent='Please paste the Apps Script /exec URL'; return; } localStorage.removeItem(LS+'cache'); load(); }
+function renameDevice(){ const n = prompt('Name of this counter / device', DEVICE); if(n){ DEVICE=n.trim(); localStorage.setItem(LS+'dev',DEVICE); document.getElementById('devName').textContent=DEVICE; } }
+function logout(){ if(QUEUE.length && !confirm(QUEUE.length+' check-ins are not uploaded yet. Log out anyway?')) return; ['pin','cache','queue'].forEach(k=>localStorage.removeItem(LS+k)); location.reload(); }
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeRes(); else if(e.key==='Enter' && document.getElementById('res').style.display==='flex' && document.activeElement.id!=='manual'){ closeRes(); } });
+
+// start: show saved list instantly (if any), then refresh from the sheet
+(function(){ const c = localStorage.getItem(LS+'cache'); if(c){ try{ merge(JSON.parse(c)); }catch(e){} } load(); })();
+</script>
+</body>
+</html>
